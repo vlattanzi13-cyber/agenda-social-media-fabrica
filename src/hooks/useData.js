@@ -1,19 +1,19 @@
-// src/hooks/useData.js
 import { useState, useEffect } from 'react';
 import {
-  collection, doc, onSnapshot, setDoc, addDoc,
-  deleteDoc, updateDoc, getDocs, writeBatch
+  collection, doc, onSnapshot, setDoc,
+  deleteDoc, getDocs, writeBatch
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { initialProfissionais, initialClientes } from '../lib/seedData';
 
-export function useData() {
+export function useData(user) {
   const [profissionais, setProfissionais] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Inicializa dados se o banco estiver vazio
+    if (!user) { setLoading(false); return; }
+
     const init = async () => {
       const profSnap = await getDocs(collection(db, 'profissionais'));
       if (profSnap.empty) {
@@ -30,7 +30,6 @@ export function useData() {
     };
     init();
 
-    // Listeners em tempo real
     const unsubProf = onSnapshot(collection(db, 'profissionais'), snap => {
       setProfissionais(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
@@ -40,16 +39,13 @@ export function useData() {
     });
 
     return () => { unsubProf(); unsubCli(); };
-  }, []);
+  }, [user]);
 
-  // PROFISSIONAIS
   const salvarProfissional = async (prof) => {
     const id = prof.id || prof.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     await setDoc(doc(db, 'profissionais', id), { ...prof, id });
   };
   const excluirProfissional = async (id) => deleteDoc(doc(db, 'profissionais', id));
-
-  // CLIENTES
   const salvarCliente = async (cliente) => {
     const id = cliente.id || cliente.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     await setDoc(doc(db, 'clientes', id), { ...cliente, id });
