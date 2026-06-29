@@ -1,12 +1,8 @@
-// src/lib/firebase.js
-// IMPORTANTE: Substitua os valores abaixo pelas suas credenciais do Firebase
-// Acesse: https://console.firebase.google.com → Seu projeto → Configurações → Seus apps
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
-jsconst firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyDCGFZ8LxkmRSwFBhOEWf7_f-CK7IIcbVk",
   authDomain: "agenda-social-media-fabrica.firebaseapp.com",
   projectId: "agenda-social-media-fabrica",
