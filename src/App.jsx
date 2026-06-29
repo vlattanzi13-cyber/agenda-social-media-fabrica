@@ -8,7 +8,7 @@ import { useData } from './hooks/useData';
 
 export default function App() {
   const { user, isAdmin, loading: authLoading, login, logout } = useAuth();
-  const { profissionais, clientes, loading: dataLoading, salvarProfissional, excluirProfissional, salvarCliente, excluirCliente } = useData();
+const { profissionais, clientes, loading: dataLoading, salvarProfissional, excluirProfissional, salvarCliente, excluirCliente } = useData(user);
   const [pagina, setPagina] = useState('agenda');
 
   if (authLoading || dataLoading) {
