@@ -8,7 +8,12 @@ import { useData } from './hooks/useData';
 
 export default function App() {
   const { user, isAdmin, loading: authLoading, login, logout } = useAuth();
-const { profissionais, clientes, loading: dataLoading, salvarProfissional, excluirProfissional, salvarCliente, excluirCliente } = useData(user);
+const {
+  profissionais, clientes, tarefasEditadas, loading: dataLoading,
+  salvarProfissional, excluirProfissional,
+  salvarCliente, excluirCliente,
+  salvarTarefaEditada, excluirTarefaEditada,
+} = useData(user);
   const [pagina, setPagina] = useState('agenda');
 
   if (authLoading || dataLoading) {
@@ -61,7 +66,14 @@ const { profissionais, clientes, loading: dataLoading, salvarProfissional, exclu
       {/* Conteúdo */}
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 24px' }}>
         {pagina === 'agenda' && (
-          <Agenda profissionais={profissionais} clientes={clientes} />
+      <Agenda
+  profissionais={profissionais}
+  clientes={clientes}
+  isAdmin={isAdmin}
+  tarefasEditadas={tarefasEditadas}
+  onSalvarTarefa={salvarTarefaEditada}
+  onExcluirTarefa={excluirTarefaEditada}
+/>
         )}
         {pagina === 'config' && isAdmin && (
           <Configuracoes
