@@ -1,23 +1,41 @@
-// src/pages/Agenda.jsx
 import React, { useState, useMemo } from 'react';
 import AgendaSemana from '../components/AgendaSemana';
 import { getSemanasMes, gerarTarefasSemana, MESES_PT } from '../lib/gerarAgenda';
 
-export default function Agenda({ profissionais, clientes }) {
+export default function Agenda({ profissionais, clientes, isAdmin, tarefasEditadas, onSalvarTarefa, onExcluirTarefa }) {
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth());
   const [semanaAtiva, setSemanaAtiva] = useState(0);
-  const [visao, setVisao] = useState('semana'); // 'semana' | 'profissional' | 'volume'
+  const [visao, setVisao] = useState('semana');
 
   const semanas = useMemo(() => getSemanasMes(ano, mes), [ano, mes]);
   const totalReels = useMemo(() => clientes.reduce((s, c) => s + (c.reels || 0), 0), [clientes]);
   const totalPecas = useMemo(() => clientes.reduce((s, c) => s + (c.carrosseis||0) + (c.reels||0) + (c.posts||0), 0), [clientes]);
 
+  const chaveTarefa = (semanaIdx, profId, diaIdx) => `${ano}-${mes}-sem${semanaIdx}-${profId}-dia${diaIdx}`;
+
+  const mesclarComEditadas = (semanaIdx, tarefasGeradas) => {
+    const resultado = {};
+    Object.keys(tarefasGeradas).forEach(profId => {
+      resultado[profId] = tarefasGeradas[profId].map((tarefa, diaIdx) => {
+        const chave = chaveTarefa(semanaIdx, profId, diaIdx);
+        const editada = tarefasEditadas?.[chave];
+        if (editada) {
+          if (editada.excluida) return { titulo: '', detalhe: '', vazio: true, _chave: chave };
+          return { ...tarefa, ...editada, vazio: false, _editada: true, _chave: chave };
+        }
+        return { ...tarefa, _chave: chave };
+      });
+    });
+    return resultado;
+  };
+
   const tarefasSemana = useMemo(() => {
     if (!semanas[semanaAtiva]) return {};
-    return gerarTarefasSemana(semanaAtiva, semanas.length, profissionais, clientes, semanas[semanaAtiva]);
-  }, [semanaAtiva, semanas, profissionais, clientes]);
+    const geradas = gerarTarefasSemana(semanaAtiva, semanas.length, profissionais, clientes, semanas[semanaAtiva]);
+    return mesclarComEditadas(semanaAtiva, geradas);
+  }, [semanaAtiva, semanas, profissionais, clientes, tarefasEditadas, ano, mes]);
 
   const anos = [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1];
 
@@ -25,7 +43,6 @@ export default function Agenda({ profissionais, clientes }) {
 
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", color: '#2C2C2A' }}>
-      {/* Seletor de mês/ano */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={() => { if (mes === 0) { setMes(11); setAno(a => a-1); } else setMes(m => m-1); setSemanaAtiva(0); }}
@@ -44,9 +61,13 @@ export default function Agenda({ profissionais, clientes }) {
         <div style={{ fontSize: 12, color: '#888780' }}>
           Produzindo conteúdo para <strong style={{ color: '#2C2C2A' }}>{mesProduzindo}</strong>
         </div>
+        {isAdmin && (
+          <span style={{ fontSize: 11, background: '#EEEDFE', color: '#3C3489', padding: '3px 10px', borderRadius: 20, fontWeight: 500 }}>
+            ✏️ Modo admin — clique em uma tarefa para editar
+          </span>
+        )}
       </div>
 
-      {/* Stats rápidas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
         {[
           { num: semanas.length, label: 'Semanas úteis' },
@@ -61,7 +82,6 @@ export default function Agenda({ profissionais, clientes }) {
         ))}
       </div>
 
-      {/* Abas de visão */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid #E5E3DC' }}>
         {[['semana', 'Por semana'], ['profissional', 'Por profissional'], ['volume', 'Volume de conteúdo']].map(([v, l]) => (
           <button key={v} onClick={() => setVisao(v)} style={{
@@ -72,10 +92,8 @@ export default function Agenda({ profissionais, clientes }) {
         ))}
       </div>
 
-      {/* VISÃO POR SEMANA */}
       {visao === 'semana' && (
         <div>
-          {/* Tabs de semanas */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
             {semanas.map((sem, i) => (
               <button key={i} onClick={() => setSemanaAtiva(i)} style={{
@@ -96,13 +114,16 @@ export default function Agenda({ profissionais, clientes }) {
               diasDaSemana={semanas[semanaAtiva]}
               tarefas={tarefasSemana}
               profissionais={profissionais}
+              clientes={clientes}
               totalSemanas={semanas.length}
+              isAdmin={isAdmin}
+              onSalvarTarefa={onSalvarTarefa}
+              onExcluirTarefa={onExcluirTarefa}
             />
           )}
         </div>
       )}
 
-      {/* VISÃO POR PROFISSIONAL */}
       {visao === 'profissional' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {profissionais.map(prof => (
@@ -116,8 +137,9 @@ export default function Agenda({ profissionais, clientes }) {
               </div>
               <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {semanas.map((sem, si) => {
-                  const t = gerarTarefasSemana(si, semanas.length, profissionais, clientes, sem);
-                  const diasProf = t[prof.id] || [];
+                  const tGeradas = gerarTarefasSemana(si, semanas.length, profissionais, clientes, sem);
+                  const tMescladas = mesclarComEditadas(si, tGeradas);
+                  const diasProf = tMescladas[prof.id] || [];
                   const tarefasReais = diasProf.filter(d => d && !d.vazio);
                   if (tarefasReais.length === 0) return null;
                   return (
@@ -137,7 +159,6 @@ export default function Agenda({ profissionais, clientes }) {
         </div>
       )}
 
-      {/* VOLUME DE CONTEÚDO */}
       {visao === 'volume' && (
         <div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, background: '#fff', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E3DC' }}>
