@@ -9,11 +9,11 @@ import { initialProfissionais, initialClientes } from '../lib/seedData';
 export function useData(user) {
   const [profissionais, setProfissionais] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [tarefasEditadas, setTarefasEditadas] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
-
     const init = async () => {
       const profSnap = await getDocs(collection(db, 'profissionais'));
       if (profSnap.empty) {
@@ -29,7 +29,6 @@ export function useData(user) {
       }
     };
     init();
-
     const unsubProf = onSnapshot(collection(db, 'profissionais'), snap => {
       setProfissionais(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
@@ -37,8 +36,12 @@ export function useData(user) {
       setClientes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     });
-
-    return () => { unsubProf(); unsubCli(); };
+    const unsubTarefas = onSnapshot(collection(db, 'tarefasEditadas'), snap => {
+      const obj = {};
+      snap.docs.forEach(d => { obj[d.id] = { id: d.id, ...d.data() }; });
+      setTarefasEditadas(obj);
+    });
+    return () => { unsubProf(); unsubCli(); unsubTarefas(); };
   }, [user]);
 
   const salvarProfissional = async (prof) => {
@@ -46,11 +49,27 @@ export function useData(user) {
     await setDoc(doc(db, 'profissionais', id), { ...prof, id });
   };
   const excluirProfissional = async (id) => deleteDoc(doc(db, 'profissionais', id));
+
   const salvarCliente = async (cliente) => {
     const id = cliente.id || cliente.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     await setDoc(doc(db, 'clientes', id), { ...cliente, id });
   };
   const excluirCliente = async (id) => deleteDoc(doc(db, 'clientes', id));
 
-  return { profissionais, clientes, loading, salvarProfissional, excluirProfissional, salvarCliente, excluirCliente };
+  const salvarTarefaEditada = async (chave, dadosTarefa) => {
+    await setDoc(doc(db, 'tarefasEditadas', chave), {
+      ...dadosTarefa,
+      atualizadoEm: Date.now(),
+      atualizadoPor: user?.email || 'desconhecido',
+    });
+  };
+
+  const excluirTarefaEditada = async (chave) => deleteDoc(doc(db, 'tarefasEditadas', chave));
+
+  return {
+    profissionais, clientes, tarefasEditadas, loading,
+    salvarProfissional, excluirProfissional,
+    salvarCliente, excluirCliente,
+    salvarTarefaEditada, excluirTarefaEditada,
+  };
 }
