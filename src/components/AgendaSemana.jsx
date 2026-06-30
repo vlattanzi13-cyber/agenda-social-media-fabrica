@@ -1,10 +1,44 @@
 // src/components/AgendaSemana.jsx
-import React from 'react';
+import React, { useState } from 'react';
+import ModalEditarTarefa from './ModalEditarTarefa';
 
-export default function AgendaSemana({ semanaIdx, diasDaSemana, tarefas, profissionais, totalSemanas }) {
+export default function AgendaSemana({
+  semanaIdx, diasDaSemana, tarefas, profissionais, clientes, totalSemanas,
+  isAdmin, onSalvarTarefa, onExcluirTarefa
+}) {
+  const [editando, setEditando] = useState(null);
+
   const fases = ['Pesquisa & Planejamento', 'Criação em bloco', 'Edição & Aprovação', 'Agendamento & Relatório'];
   const fase = semanaIdx < 4 ? fases[semanaIdx] : 'Semana extra — antecipação';
   const numDias = diasDaSemana.length;
+
+  const abrirEdicao = (prof, diaIdx, tarefaAtual) => {
+    if (!isAdmin) return;
+    setEditando({
+      prof,
+      diaIdx,
+      chave: tarefaAtual?._chave,
+      tarefa: {
+        titulo: tarefaAtual?.titulo || '',
+        detalhe: tarefaAtual?.detalhe || '',
+        cliente: tarefaAtual?.cliente || '',
+        tipo: tarefaAtual?.tipo || '',
+        responsavelId: prof.id,
+      },
+    });
+  };
+
+  const handleSalvar = async (dadosTarefa) => {
+    if (!editando) return;
+    await onSalvarTarefa(editando.chave, dadosTarefa);
+    setEditando(null);
+  };
+
+  const handleExcluir = async () => {
+    if (!editando) return;
+    await onExcluirTarefa(editando.chave);
+    setEditando(null);
+  };
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -17,7 +51,6 @@ export default function AgendaSemana({ semanaIdx, diasDaSemana, tarefas, profiss
           </span>
         )}
       </div>
-
       <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 4, minWidth: 600 }}>
         <thead>
           <tr>
@@ -41,16 +74,35 @@ export default function AgendaSemana({ semanaIdx, diasDaSemana, tarefas, profiss
                 </td>
                 {Array(numDias).fill(null).map((_, i) => {
                   const t = dias[i];
-                  if (!t || t.vazio) return <td key={i}><div style={{ minHeight: 58 }}></div></td>;
+                  const vazio = !t || t.vazio;
                   return (
                     <td key={i}>
-                      <div style={{
-                        background: prof.corClara, border: `1px solid ${prof.corBorda}`,
-                        borderRadius: 7, padding: '7px 8px', minHeight: 58,
-                        color: prof.corTexto
-                      }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3, marginBottom: 3 }}>{t.titulo}</div>
-                        <div style={{ fontSize: 10, opacity: .85, lineHeight: 1.4 }}>{t.detalhe}</div>
+                      <div
+                        onClick={() => abrirEdicao(prof, i, t)}
+                        style={{
+                          background: vazio ? (isAdmin ? '#FAFAF9' : 'transparent') : prof.corClara,
+                          border: vazio ? (isAdmin ? '1px dashed #E5E3DC' : 'none') : `1px solid ${prof.corBorda}`,
+                          borderRadius: 7, padding: '7px 8px', minHeight: 58,
+                          color: vazio ? '#B7B5AD' : prof.corTexto,
+                          cursor: isAdmin ? 'pointer' : 'default',
+                          position: 'relative',
+                          transition: 'box-shadow .15s',
+                        }}
+                        onMouseEnter={e => { if (isAdmin) e.currentTarget.style.boxShadow = '0 0 0 2px #2C2C2A33'; }}
+                        onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
+                      >
+                        {!vazio && (
+                          <>
+                            <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3, marginBottom: 3 }}>{t.titulo}</div>
+                            <div style={{ fontSize: 10, opacity: .85, lineHeight: 1.4 }}>{t.detalhe}</div>
+                          </>
+                        )}
+                        {vazio && isAdmin && (
+                          <div style={{ fontSize: 16, textAlign: 'center', lineHeight: '44px' }}>+</div>
+                        )}
+                        {t?._editada && (
+                          <span title="Editado manualmente" style={{ position: 'absolute', top: 4, right: 4, fontSize: 9 }}>✏️</span>
+                        )}
                       </div>
                     </td>
                   );
@@ -60,6 +112,17 @@ export default function AgendaSemana({ semanaIdx, diasDaSemana, tarefas, profiss
           })}
         </tbody>
       </table>
+
+      {editando && (
+        <ModalEditarTarefa
+          tarefa={editando.tarefa}
+          profissional={editando.prof}
+          clientes={clientes}
+          onSalvar={handleSalvar}
+          onExcluir={handleExcluir}
+          onFechar={() => setEditando(null)}
+        />
+      )}
     </div>
   );
 }
